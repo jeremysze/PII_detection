@@ -174,7 +174,26 @@ if __name__ == '__main__':
     root.style.configure('my.TMenubutton', background='white')
 
     w = tkinter.Menu(root)#.pack()
-    root.resizable(False, False) # prevents window from being resized
+    #root.resizable(False, False) # prevents window from being resized
+
+    # a subclass of Canvas for dealing with resizing of windows
+    class ResizingCanvas(Canvas):
+        def __init__(self,parent,**kwargs):
+            Canvas.__init__(self,parent,**kwargs)
+            self.bind("<Configure>", self.on_resize)
+            self.height = self.winfo_reqheight()
+            self.width = self.winfo_reqwidth()
+
+        def on_resize(self,event):
+            # determine the ratio of old width/height to new width/height
+            wscale = float(event.width)/self.width
+            hscale = float(event.height)/self.height
+            self.width = event.width
+            self.height = event.height
+            # resize the canvas 
+            self.config(width=self.width, height=self.height)
+            # rescale all the objects tagged with the "all" tag
+            self.scale("all",0,0,wscale,hscale)
 
     # Display
 
@@ -183,8 +202,9 @@ if __name__ == '__main__':
         canvas.configure(scrollregion=canvas.bbox("all"))
 
     canvas = Canvas(root)
-    frame = Frame(canvas, width=606, height=636, bg="white")
-    frame.place(x=30, y=30)
+    frame = ResizingCanvas(canvas, width=606, height=636, bg="white")
+    frame.pack(fill=BOTH, expand=YES)
+    #frame.place(x=30, y=30)
     #frame.pack_propagate(False)
     #frame.pack()
 
@@ -192,8 +212,8 @@ if __name__ == '__main__':
     canvas.configure(yscrollcommand=vsb.set)
 
     vsb.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
-    canvas.create_window((35,30), window=frame, anchor="nw")
+    canvas.pack(side="left", fill="both", expand=YES)
+    #canvas.create_window((35,30), window=frame, anchor="nw")
 
     frame.bind("<Configure>", lambda event, canvas=canvas: onFrameConfigure(canvas))
 
@@ -229,14 +249,8 @@ if __name__ == '__main__':
     checkBox1 = ttk.Checkbutton(frame, variable=checkTemp, onvalue=1, offvalue=0, text="Output Session Log", style='my.TCheckbutton').pack(side=LEFT, padx=(100, 0), fill=X)
 
     # Listener
-
+    frame.addtag_all("all")
     root.mainloop()  # constantly looping event listener
-
-try:
-    if len(messages_pipe) != 0:
-        ttk.Label(frame, text=messages_pipe.get(), wraplength=546, justify=LEFT, font=("Calibri", 11), style='my.TLabel').pack(anchor='nw', padx=(30, 30), pady=(0, 30))
-except NameError:
-    pass
 
 
 # Extra code
