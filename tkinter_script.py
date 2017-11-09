@@ -11,10 +11,11 @@ from multiprocessing import Process, Pipe
 import PII_data_processor
 from PIL import ImageTk, Image
 
+### make forloop a generator so 'next' can be called, and/or store the displays so I can cycle through them myself ###
+
 intro_text = "This script is meant to assist in the detection of PII (personally identifiable information) and subsequent removal from a dataset."
 intro_text_p2 = "Ensuring the dataset is devoid of PII is ultimately still your responsibility. Be careful with potential identifiers, especially geographic, because they can sometimes be combined with other variables to become identifying."
 app_title = "IPA's PII Detector, Cleaner, and Recoder"
-
 
 class GUI:
     def __init__(self, master):
@@ -24,31 +25,31 @@ class GUI:
         master.iconbitmap("IPA-Asia-Logo-Image.ico")
         master.minsize(width=686, height=666)
 
-def input(the_message):
-    try:
-        ttk.Label(frame, text=the_message, wraplength=546, justify=LEFT, font=("Calibri", 11), style='my.TLabel').pack(anchor='nw', padx=(30, 30), pady=(0, 12))
+def run_input_wait():
+    var.trace(input_wait, callback) ### delete depending on result of comment up top
 
-        def evaluate(event=None):
-            pass
+def input(the_message, first=False):
+    def input_accepted(event=None):
+        tkinter_display("User input: " + str(entry.get()))
+        entry.pack_forget()
+        input_label.pack_forget()
+        submit_button.pack_forget()
+        input_wait.set(1)
+        return entry.get()
 
-            #if entry.get() in ['y', 'yes']:
-            #    return True
-            #res.configure(text="Ergebnis: " + )
-
-    except:  # ## add specific Jupyter error here
-        pass
-
-    Label(frame, text="Your Expression:").pack()
+    global entry
     entry = Entry(frame)
-    entry.bind("<Return>", evaluate)
-    if ttk.Button(frame, text="Submit", command=evaluate, style='my.TButton').pack() is True:
-        return True
-    entry.pack()
-    time.sleep(8)
-    res = Label(frame)
-    res.pack()
-    return ('No')
-
+    input_label = ttk.Label(frame, text=the_message, wraplength=546, justify=LEFT, font=("Calibri Bold", 11), style='my.TLabel')
+    entry.bind("<Return>", input_accepted)
+    submit_button = ttk.Button(frame, text="Submit", width=10, command=input_accepted, style='my.TButton')
+    input_label.pack(anchor='nw', padx=(30, 30), pady=(0, 12))
+    entry.pack(anchor='nw', padx=(30, 30))
+    submit_button.pack(anchor='nw')
+    if input_wait.get() == 1:
+        input_wait.set(0)
+        return entry.get()
+    else:
+        root.mainloop()
 
 def tkinter_display(the_message):
     the_message = datetime.now().strftime("%H:%M:%S") + '     ' + the_message
@@ -136,7 +137,7 @@ def next_steps(identified_pii, dataset, datap_functions_conn, datap_messages_con
     tkinter_display(tkinter_messages_conn.recv())
     identified_pii = tkinter_functions_conn.recv()
 
-    # reviewed_pii, removed_status = review_potential_pii(identified_pii, dataset)
+    reviewed_pii, removed_status = review_potential_pii(identified_pii, dataset)
     # dataset, recoded_fields = recode(dataset)
     # path, export_status = export(dataset)
     # log(reviewed_pii, removed_status, recoded_fields, path, export_status)
@@ -145,12 +146,35 @@ def next_steps(identified_pii, dataset, datap_functions_conn, datap_messages_con
     # Consider adding option to restart script.
     tkinter_display('Processing complete.')
 
+yes_strings = ['y', 'yes', 'Y', 'Yes']
+def review_potential_pii(possible_pii, dataset):
+    #first does the GUI approach, and then does the command line / notebook approach
+    confirmed_pii = []
+    removed = False
+    
+    if input('There are ' + str(len(set(possible_pii))) + ' variables that may contain PII. Would you like to review them and decide which to delete?') in yes_strings:
+        count = 0
+        for v in set(possible_pii):
+            count += 1
+            display(dataset[v].dropna()[:8])
+            if input('Does this look like PII? (' + str(len(set(possible_pii))-count) + ' variables left to review.)  ') in yes_strings:
+                confirmed_pii.append(v)
+
+    # Option to remove PII
+    if input('Would you like to remove the columns identified as PII?   ') in yes_strings:
+        for pii in confirmed_pii:
+            del dataset[pii]
+        removed = True
+    
+    return confirmed_pii, removed
 
 if __name__ == '__main__':
 
     # GUI
 
     root = Tk()  # creates GUI window
+    input_wait = IntVar()
+    input_wait.set(0)
 
 
     my_gui = GUI(root)  # runs code in class GUI
